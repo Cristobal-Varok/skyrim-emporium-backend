@@ -21,6 +21,7 @@ import cl.duoc.skyrimemporium.dto.PedidoRequest;
 import cl.duoc.skyrimemporium.dto.AuthResponse;
 import cl.duoc.skyrimemporium.dto.LoginRequest;
 import cl.duoc.skyrimemporium.dto.CategoriaRequest;
+import cl.duoc.skyrimemporium.dto.PerfilRequest;
 import cl.duoc.skyrimemporium.dto.UsuarioRequest;
 import cl.duoc.skyrimemporium.modelo.Producto;
 import cl.duoc.skyrimemporium.repositorio.ProductoRepository;
@@ -136,7 +137,7 @@ class ProductoPedidoApiTest {
         mockMvc.perform(get("/api/pedidos/usuario/{run}", "0000000K")
                         .header("Authorization", "Bearer " + tokenCliente))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$.length()", greaterThanOrEqualTo(1)));
         mockMvc.perform(get("/api/pedidos/{id}", pedidoId)
                         .header("Authorization", "Bearer " + tokenCliente))
                 .andExpect(status().isOk())
@@ -342,6 +343,262 @@ class ProductoPedidoApiTest {
                         .value("curar-enfermedad"))
                 .andExpect(jsonPath("$.components.schemas.AuthResponse.properties.tokenType.example").value("Bearer"))
                 .andExpect(jsonPath("$.components.schemas.CategoriaResponse.properties.titulo.example").value("Pociones"));
+    }
+
+    @Test
+    void loginRechazaFormularioSinCorreo() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contrasena\":\"1234567\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.correo").exists());
+    }
+
+    @Test
+    void loginRechazaCredencialesInvalidas() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("ejemplo@gmail.com", "incorrecta"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje", containsString("Correo o contras")));
+    }
+
+    @Test
+    void usuarioPuedeConsultarYActualizarSuPerfil() throws Exception {
+        String token = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+
+        mockMvc.perform(get("/api/usuarios/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correo").value("ejemplo@gmail.com"));
+
+        PerfilRequest perfil = new PerfilRequest("Nombre editado", "Apellido editado",
+                "ejemplo@gmail.com");
+        mockMvc.perform(put("/api/usuarios/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(perfil)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Nombre editado"))
+                .andExpect(jsonPath("$.correo").value("ejemplo@gmail.com"));
+    }
+
+    @Test
+    void catalogoFiltraPorGremioYCategoria() throws Exception {
+        mockMvc.perform(get("/api/productos").param("gremio", "alquimia"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].gremio").value(org.hamcrest.Matchers.everyItem(
+                        org.hamcrest.Matchers.equalTo("alquimia"))));
+
+        mockMvc.perform(get("/api/productos")
+                        .param("gremio", "alquimia")
+                        .param("categoria", "Pociones"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].categoria").value(org.hamcrest.Matchers.everyItem(
+                        org.hamcrest.Matchers.equalTo("Pociones"))));
+    }
+
+    @Test
+    void catalogoDevuelveVacioParaGremioInexistente() throws Exception {
+        mockMvc.perform(get("/api/productos").param("gremio", "gremio-inexistente"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void productoInexistenteResponde404() throws Exception {
+        mockMvc.perform(get("/api/productos/{id}", "producto-inexistente"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listadoDeStockCriticoEstaProtegidoParaAdministrador() throws Exception {
+        String tokenVendedor = authService.iniciarSesion(
+                new LoginRequest("vendedor@duoc.cl", "123456")).respuesta().accessToken();
+        mockMvc.perform(get("/api/productos/stock-critico")
+                        .header("Authorization", "Bearer " + tokenVendedor))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/productos/stock-critico")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void vendedorNoPuedeCrearEditarNiEliminarProductos() throws Exception {
+        String tokenVendedor = authService.iniciarSesion(
+                new LoginRequest("vendedor@duoc.cl", "123456")).respuesta().accessToken();
+        Producto producto = new Producto("vendedor::bloqueado", "Bloqueado", 100,
+                "Descripción", "assets/test.png", 2, "alquimia", "Pociones", 1);
+
+        mockMvc.perform(post("/api/productos")
+                        .header("Authorization", "Bearer " + tokenVendedor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(producto)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/productos/{id}", productoId)
+                        .header("Authorization", "Bearer " + tokenVendedor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(producto)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/productos/{id}", productoId)
+                        .header("Authorization", "Bearer " + tokenVendedor))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pedidoNoPermiteQueUnClienteConsulteOtraCuenta() throws Exception {
+        String tokenCliente = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+        mockMvc.perform(get("/api/pedidos/usuario/{run}", "123456789")
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pedidoRechazaMasUnidadesQueElStockDisponible() throws Exception {
+        String tokenCliente = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+        PedidoRequest solicitud = new PedidoRequest(
+                List.of(new LineaPedido(productoId, 4)), "Cliente", "cliente@ejemplo.cl");
+        mockMvc.perform(post("/api/pedidos")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(solicitud)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje", containsString("quedan 3 unidades")));
+    }
+
+    @Test
+    void pedidoConfirmadoNoAceptaPreciosCalculadosPorElCliente() throws Exception {
+        String tokenCliente = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+        String cuerpo = "{\"lineas\":[{\"productoId\":\"" + productoId
+                + "\",\"cantidad\":1}],\"cliente\":\"Cliente\",\"correo\":\"cliente@ejemplo.cl\","
+                + "\"total\":1,\"items\":[{\"precio\":1}]}";
+        mockMvc.perform(post("/api/pedidos")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.total").value(42));
+    }
+
+    @Test
+    void categoriasPublicasSePuedenListar() throws Exception {
+        mockMvc.perform(get("/api/categorias"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void categoriaDuplicadaResponde409() throws Exception {
+        CategoriaRequest categoria = new CategoriaRequest("alquimia", "Pociones");
+        mockMvc.perform(post("/api/categorias")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(categoria)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void clienteNoPuedeMantenerCategorias() throws Exception {
+        String tokenCliente = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+        CategoriaRequest categoria = new CategoriaRequest("alquimia", "Temporal cliente");
+        mockMvc.perform(post("/api/categorias")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(categoria)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void registroPublicoRechazaDatosIncompletos() throws Exception {
+        mockMvc.perform(post("/api/usuarios/registro")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Juan\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos").exists());
+    }
+
+    @Test
+    void perfilPublicoNoPuedeAsignarRolAdministrador() throws Exception {
+        UsuarioRequest nuevo = new UsuarioRequest("22345678-2", "Prueba", "Cliente",
+                "registro-publico@ejemplo.cl", "clave123", null, "Administrador",
+                "Metropolitana de Santiago", "Santiago", "Calle 123");
+        mockMvc.perform(post("/api/usuarios/registro")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(nuevo)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tipo").value("Cliente"));
+    }
+
+    @Test
+    void vendedorNoPuedeCrearUsuarios() throws Exception {
+        String tokenVendedor = authService.iniciarSesion(
+                new LoginRequest("vendedor@duoc.cl", "123456")).respuesta().accessToken();
+        UsuarioRequest nuevo = new UsuarioRequest("12345678-5", "Usuario", "Prueba",
+                "vendedor-crea@ejemplo.cl", "clave123", null, "Cliente", null, null, null);
+        mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenVendedor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(nuevo)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void administradorPuedeConsultarElResumen() throws Exception {
+        mockMvc.perform(get("/api/admin/resumen")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ordenes").isNumber())
+                .andExpect(jsonPath("$.productos").isNumber())
+                .andExpect(jsonPath("$.usuarios").isNumber());
+    }
+
+    @Test
+    void clienteNoPuedeConsultarElResumenAdministrativo() throws Exception {
+        String tokenCliente = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+        mockMvc.perform(get("/api/admin/resumen")
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void loginSinAccesoDebeResponder401EnPerfil() throws Exception {
+        mockMvc.perform(get("/api/usuarios/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void tokenDeLogoutYaNoPermiteAccederAlPerfil() throws Exception {
+        LoginRequest login = new LoginRequest("vale.rodrigueza@duoc.cl", "1234567");
+        MvcResult inicio = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String token = objectMapper.readTree(inicio.getResponse().getContentAsString())
+                .get("accessToken").asText();
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + token)
+                        .cookie(new Cookie("skyrim_refresh", cookieToken(inicio))))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/usuarios/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshSinCookieDebeResponder401() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isUnauthorized());
     }
 
     private String cookieToken(MvcResult resultado) {

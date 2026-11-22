@@ -26,17 +26,36 @@ public class AuthService {
         this.tokens = tokens;
     }
 
-    public AuthResponse iniciarSesion(LoginRequest solicitud) {
+    public SesionAuth iniciarSesion(LoginRequest solicitud) {
         Usuario usuario = usuarios.findByCorreoIgnoreCase(solicitud.correo().trim().toLowerCase(Locale.ROOT))
                 .orElseThrow(CredencialesInvalidasException::new);
         if (!passwordEncoder.matches(solicitud.contrasena(), usuario.getContrasenaHash())) {
             throw new CredencialesInvalidasException();
         }
-        TokenService.TokenEmitido token = tokens.crear(usuario.getRun());
-        return new AuthResponse(token.valor(), "Bearer", token.vence(), UsuarioResponse.desde(usuario));
+        return crearSesion(usuario, tokens.crear(usuario.getRun()));
     }
 
-    public void cerrarSesion(String token) {
-        tokens.revocar(token);
+    public SesionAuth renovar(String refreshToken) {
+        TokenService.TokensEmitidos emitidos = tokens.renovar(refreshToken);
+        String run = tokens.buscarRun(emitidos.accessToken());
+        if (run == null) throw new CredencialesInvalidasException();
+        Usuario usuario = usuarios.findById(run).orElseThrow(CredencialesInvalidasException::new);
+        return crearSesion(usuario, emitidos);
     }
+
+    public void cerrarSesion(String accessToken, String refreshToken) {
+        tokens.revocarAccess(accessToken);
+        tokens.revocarRefresh(refreshToken);
+    }
+
+    private SesionAuth crearSesion(Usuario usuario, TokenService.TokensEmitidos tokensEmitidos) {
+        AuthResponse respuesta = new AuthResponse(
+                tokensEmitidos.accessToken(),
+                "Bearer",
+                tokensEmitidos.venceAccess(),
+                UsuarioResponse.desde(usuario));
+        return new SesionAuth(respuesta, tokensEmitidos.refreshToken(), tokensEmitidos.venceRefresh());
+    }
+
+    public record SesionAuth(AuthResponse respuesta, String refreshToken, java.time.Instant venceRefresh) { }
 }

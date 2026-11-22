@@ -1,16 +1,18 @@
 # Skyrim Emporium API
 
-API REST construida con Spring Boot 3, Java 21, Maven, Spring Data JPA y H2. Incluye catálogo, checkout, cuentas con roles y las operaciones usadas por el panel administrativo.
+API REST construida con Spring Boot 3, Java 21, Maven, Spring Data JPA y MySQL/MariaDB. Incluye catálogo, checkout, cuentas con roles y operaciones administrativas.
 
 ## Ejecutar
 
-Requiere Java 21. Abre una terminal PowerShell en `backend` y ejecuta:
+Requiere Java 21 y MySQL/MariaDB iniciado en XAMPP. La base `skyrimemporium` debe existir y estar cargada con el esquema de `database/skyrimemporium.sql`. Ese script elimina y vuelve a crear la base: no lo ejecutes sobre datos que quieras conservar.
+
+`JWT_SECRET` es una variable de entorno de Windows, no una carpeta ni un archivo del proyecto. El script `run-local.ps1` la genera y guarda automáticamente en las variables de entorno de tu usuario solo la primera vez; no guarda la clave en el repositorio.
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\run-local.ps1
 ```
 
-La API queda disponible en `http://localhost:8080`. El Maven Wrapper descarga Maven y dependencias si es necesario. H2 guarda sus datos en `backend/data/` y los conserva al reiniciar; esa carpeta está excluida de Git. Para empezar con una base vacía, detén el servidor y elimina solamente los archivos de esa base local.
+La API queda disponible en `http://localhost:8081`. Desde la carpeta `backend`, ejecuta `.\run-local.ps1` cada vez que quieras iniciar el backend. Los tokens de acceso se generan automáticamente al iniciar sesión. Las sesiones de renovación se guardan en memoria, así que hay que iniciar sesión de nuevo al reiniciar el backend. Para producción, usa HTTPS y configura `security.jwt.refresh-cookie-secure=true`.
 
 Para ejecutar las pruebas:
 
@@ -32,9 +34,11 @@ La respuesta incluye `accessToken`, `tokenType: "Bearer"`, la fecha de expiraci�
 Authorization: Bearer <accessToken>
 ```
 
-El token dura 8 horas y se revoca al cerrar sesión (`POST /api/auth/logout`). Por ahora los tokens viven en memoria y dejan de servir al reiniciar el backend; las cuentas, productos y pedidos sí persisten en H2.
+El access token es un JWT firmado que dura 15 minutos. El refresh JWT se entrega en una cookie `HttpOnly`, dura hasta 8 horas y rota al llamar a `POST /api/auth/refresh`. Al cerrar sesión (`POST /api/auth/logout`) se revocan los tokens activos. La lista de refresh y revocaciones vive en memoria, por lo que habrá que volver a iniciar sesión al reiniciar el backend; usuarios, productos y pedidos se guardan en MySQL.
 
-En una base local nueva se crean cuentas de demostración:
+La aplicación mantiene el access token solo en memoria del navegador. Al recargar, solicita un access token nuevo usando la cookie `HttpOnly`; los pedidos requieren una sesión autenticada. El backend obtiene nombre y correo desde la cuenta asociada al token y calcula el total y el stock desde la base de datos.
+
+En una base nueva se crean cuentas de demostración:
 
 | Rol | Correo | Contraseña |
 |---|---|---|
@@ -111,9 +115,9 @@ El backend obtiene precio e inventario desde la base de datos. Si falta stock, r
 
 ## Documentación y consola
 
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-- Consola H2: `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:file:./data/skyrimemporium`, usuario `sa`, contraseña vacía)
+- Swagger UI: `http://localhost:8081/swagger-ui.html` (incluye el esquema Bearer JWT y el botón **Authorize**)
+- OpenAPI JSON: `http://localhost:8081/v3/api-docs`
+- phpMyAdmin de XAMPP: `http://localhost/phpmyadmin`
 
 CORS permite Vite en `localhost:5173` y `localhost:5174`.
 

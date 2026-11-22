@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import cl.duoc.skyrimemporium.modelo.Producto;
 import cl.duoc.skyrimemporium.servicio.ProductoService;
 import jakarta.validation.Valid;
@@ -43,12 +44,14 @@ public class ProductoController {
 
     @GetMapping("/stock-critico")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     public List<Producto> stockCritico() {
         return servicio.stockCritico();
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.CREATED)
     public Producto crear(@Valid @RequestBody Producto producto) {
         return servicio.crear(producto);
@@ -56,12 +59,14 @@ public class ProductoController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     public Producto actualizar(@PathVariable String id, @Valid @RequestBody Producto producto) {
         return servicio.actualizar(id, producto);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminar(@PathVariable String id) {
         servicio.eliminar(id);

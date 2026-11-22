@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import cl.duoc.skyrimemporium.dto.CategoriaRequest;
 import cl.duoc.skyrimemporium.error.RecursoDuplicadoException;
 import cl.duoc.skyrimemporium.error.RecursoNoEncontradoException;
@@ -102,5 +103,9 @@ public class CategoriaService {
         return gremio + "::" + slug;
     }
 
-    public record CategoriaResponse(String id, String gremio, String titulo, long productos) { }
+    public record CategoriaResponse(
+            @Schema(example = "alquimia::pociones") String id,
+            @Schema(example = "alquimia") String gremio,
+            @Schema(example = "Pociones") String titulo,
+            @Schema(example = "12") long productos) { }
 }

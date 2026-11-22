@@ -11,49 +11,61 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Entity
 @Table(name = "productos")
 public class Producto {
 
     @Id
+    @Schema(example = "alquimia::curar-enfermedad")
     @NotBlank(message = "El identificador es obligatorio")
     private String id;
 
     @Column(unique = true, length = 80)
+    @Schema(example = "ALQ-POC-001")
     @Size(max = 80, message = "El código admite hasta 80 caracteres")
     private String codigo;
 
+    @Schema(example = "Pocion para curar enfermedades")
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El nombre admite hasta 100 caracteres")
     private String name;
 
+    @Schema(example = "150")
     @NotNull(message = "El precio es obligatorio")
     @PositiveOrZero(message = "El precio no puede ser negativo")
     private Integer price;
 
+    @Schema(example = "Una pocion que cura enfermedades comunes.")
     @Size(max = 500, message = "La descripción admite hasta 500 caracteres")
     private String description;
 
     @Lob
+    @Schema(example = "assets/img/Alquimia/curar-enfermedad.png")
     @Size(max = 5_000_000, message = "La imagen admite hasta 5 MB")
     private String image;
 
+    @Schema(example = "25")
     @NotNull(message = "El stock es obligatorio")
     @PositiveOrZero(message = "El stock no puede ser negativo")
     private Integer stock;
 
+    @Schema(example = "alquimia")
     @NotBlank(message = "El gremio es obligatorio")
     private String gremio;
 
+    @Schema(example = "Pociones")
     @NotBlank(message = "La categoría es obligatoria")
     private String categoriaSeccion;
 
+    @Schema(example = "5")
     @NotNull(message = "El stock crítico es obligatorio")
     @PositiveOrZero(message = "El stock crítico no puede ser negativo")
     private Integer stockCritico;
 
     @Version
+    @Schema(example = "0", accessMode = Schema.AccessMode.READ_ONLY)
     private Long version;
 
     public Producto() {

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import cl.duoc.skyrimemporium.dto.CategoriaRequest;
 import cl.duoc.skyrimemporium.servicio.CategoriaService;
 import cl.duoc.skyrimemporium.servicio.CategoriaService.CategoriaResponse;
@@ -36,6 +37,7 @@ public class CategoriaController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.CREATED)
     public CategoriaResponse crear(@Valid @RequestBody CategoriaRequest solicitud) {
         return servicio.crear(solicitud);
@@ -43,12 +45,14 @@ public class CategoriaController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     public CategoriaResponse actualizar(@PathVariable String id, @Valid @RequestBody CategoriaRequest solicitud) {
         return servicio.actualizar(id, solicitud);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminar(@PathVariable String id) {
         servicio.eliminar(id);

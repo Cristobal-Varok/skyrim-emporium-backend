@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.TestPropertySource;
+import jakarta.servlet.http.Cookie;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -38,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:skyrimemporium-tests;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "security.jwt.secret=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
 })
 class ProductoPedidoApiTest {
 
@@ -60,7 +62,7 @@ class ProductoPedidoApiTest {
     @BeforeEach
     void crearProductoDePrueba() {
         AuthResponse sesion = authService.iniciarSesion(
-                new LoginRequest("vale.rodrigueza@duoc.cl", "1234567"));
+                new LoginRequest("vale.rodrigueza@duoc.cl", "1234567")).respuesta();
         tokenAdmin = sesion.accessToken();
         productoId = "pruebas::" + UUID.randomUUID();
         productos.save(new Producto(productoId, "Producto de prueba", 42, "Descripción de prueba",
@@ -111,7 +113,7 @@ class ProductoPedidoApiTest {
         PedidoRequest solicitud = new PedidoRequest(
                 List.of(new LineaPedido(productoId, 2)), "Cliente de prueba", "cliente@ejemplo.cl");
         String tokenCliente = authService.iniciarSesion(
-                new LoginRequest("ejemplo@gmail.com", "123456")).accessToken();
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
 
         MvcResult resultado = mockMvc.perform(post("/api/pedidos")
                         .header("Authorization", "Bearer " + tokenCliente)
@@ -155,6 +157,14 @@ class ProductoPedidoApiTest {
         mockMvc.perform(post("/api/pedidos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(solicitud)))
+                .andExpect(status().isUnauthorized());
+
+        String tokenCliente = authService.iniciarSesion(
+                new LoginRequest("ejemplo@gmail.com", "123456")).respuesta().accessToken();
+        mockMvc.perform(post("/api/pedidos")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(solicitud)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.mensaje", containsString("quedan 3 unidades")));
 
@@ -169,7 +179,7 @@ class ProductoPedidoApiTest {
                 .andExpect(status().isUnauthorized());
 
         String tokenVendedor = authService.iniciarSesion(
-                new LoginRequest("vendedor@duoc.cl", "123456")).accessToken();
+                new LoginRequest("vendedor@duoc.cl", "123456")).respuesta().accessToken();
         mockMvc.perform(get("/api/usuarios")
                         .header("Authorization", "Bearer " + tokenVendedor))
                 .andExpect(status().isForbidden());
@@ -283,9 +293,59 @@ class ProductoPedidoApiTest {
         mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.correo").value("vale.rodrigueza@duoc.cl"));
-        mockMvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token))
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + token)
+                        .cookie(new Cookie("skyrim_refresh", cookieToken(resultado))))
                 .andExpect(status().isNoContent());
         mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void accessTokenEsJwtYRefreshRotaElToken() throws Exception {
+        LoginRequest login = new LoginRequest("vale.rodrigueza@duoc.cl", "1234567");
+        MvcResult inicio = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isString())
+                .andReturn();
+
+        String accessOriginal = objectMapper.readTree(inicio.getResponse().getContentAsString())
+                .get("accessToken").asText();
+        String refreshOriginal = cookieToken(inicio);
+        org.junit.jupiter.api.Assertions.assertEquals(3, accessOriginal.split("\\.").length);
+
+        MvcResult renovacion = mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("skyrim_refresh", refreshOriginal)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String accessRenovado = objectMapper.readTree(renovacion.getResponse().getContentAsString())
+                .get("accessToken").asText();
+        org.junit.jupiter.api.Assertions.assertNotEquals(accessOriginal, accessRenovado);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("skyrim_refresh", refreshOriginal)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void swaggerDocumentaBearerEnLaConfirmacionDePedidos() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.paths['/api/pedidos'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.components.schemas.UsuarioRequest.properties.run.example").value("12345678-5"))
+                .andExpect(jsonPath("$.components.schemas.UsuarioRequest.properties.nombre.example").value("Juan"))
+                .andExpect(jsonPath("$.components.schemas.LineaPedido.properties.productoId.example")
+                        .value("curar-enfermedad"))
+                .andExpect(jsonPath("$.components.schemas.AuthResponse.properties.tokenType.example").value("Bearer"))
+                .andExpect(jsonPath("$.components.schemas.CategoriaResponse.properties.titulo.example").value("Pociones"));
+    }
+
+    private String cookieToken(MvcResult resultado) {
+        String setCookie = resultado.getResponse().getHeader("Set-Cookie");
+        return setCookie.substring("skyrim_refresh=".length(), setCookie.indexOf(';'));
     }
 }

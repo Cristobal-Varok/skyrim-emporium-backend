@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import cl.duoc.skyrimemporium.dto.PedidoRequest;
 import cl.duoc.skyrimemporium.dto.PedidoResponse;
 import cl.duoc.skyrimemporium.error.AccesoDenegadoException;
@@ -24,6 +25,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/pedidos")
+@SecurityRequirement(name = "bearerAuth")
 public class PedidoController {
 
     private final PedidoService servicio;
@@ -56,12 +58,14 @@ public class PedidoController {
     }
 
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.CREATED)
     public PedidoResponse crear(@Valid @RequestBody PedidoRequest solicitud,
             Authentication autenticacion) {
-        String clienteRun = autenticacion == null || autenticacion instanceof AnonymousAuthenticationToken
-                ? null : autenticacion.getName();
-        return PedidoResponse.desde(servicio.crear(solicitud, clienteRun));
+        if (autenticacion == null || autenticacion instanceof AnonymousAuthenticationToken) {
+            throw new AccesoDenegadoException("Debes iniciar sesión para confirmar el pedido");
+        }
+        return PedidoResponse.desde(servicio.crear(solicitud, autenticacion.getName()));
     }
 
     private void verificarAcceso(Pedido pedido, Authentication autenticacion) {

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import cl.duoc.skyrimemporium.dto.PerfilRequest;
 import cl.duoc.skyrimemporium.dto.UsuarioRequest;
 import cl.duoc.skyrimemporium.dto.UsuarioResponse;
@@ -33,18 +34,21 @@ public class UsuarioController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     public List<UsuarioResponse> listar() {
         return servicio.listar().stream().map(UsuarioResponse::desde).toList();
     }
 
     @GetMapping("/{run}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     public UsuarioResponse obtener(@PathVariable String run) {
         return UsuarioResponse.desde(servicio.buscar(run));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.CREATED)
     public UsuarioResponse crear(@Valid @RequestBody UsuarioRequest solicitud) {
         return UsuarioResponse.desde(servicio.crear(solicitud, false));
@@ -52,12 +56,14 @@ public class UsuarioController {
 
     @PutMapping("/{run}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     public UsuarioResponse actualizar(@PathVariable String run, @Valid @RequestBody UsuarioRequest solicitud) {
         return UsuarioResponse.desde(servicio.actualizar(run, solicitud));
     }
 
     @DeleteMapping("/{run}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminar(@PathVariable String run, @AuthenticationPrincipal String actorRun) {
         servicio.eliminar(run, actorRun);
@@ -70,11 +76,13 @@ public class UsuarioController {
     }
 
     @GetMapping("/me")
+    @SecurityRequirement(name = "bearerAuth")
     public UsuarioResponse perfil(@AuthenticationPrincipal String run) {
         return UsuarioResponse.desde(servicio.buscar(run));
     }
 
     @PutMapping("/me")
+    @SecurityRequirement(name = "bearerAuth")
     public UsuarioResponse actualizarPerfil(@AuthenticationPrincipal String run,
             @Valid @RequestBody PerfilRequest solicitud) {
         return UsuarioResponse.desde(servicio.actualizarPerfil(run, solicitud));

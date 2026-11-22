@@ -42,11 +42,11 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/login", "/api/usuarios/registro", "/swagger-ui.html",
-                                "/swagger-ui/**", "/v3/api-docs/**", "/h2-console/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
+                                "/api/usuarios/registro", "/swagger-ui.html", "/swagger-ui/**",
+                                "/v3/api-docs/**", "/h2-console/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categorias/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/pedidos").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(errorHandler)
                         .accessDeniedHandler(errorHandler))

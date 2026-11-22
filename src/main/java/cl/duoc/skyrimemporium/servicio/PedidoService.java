@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cl.duoc.skyrimemporium.dto.LineaPedido;
 import cl.duoc.skyrimemporium.dto.PedidoRequest;
+import cl.duoc.skyrimemporium.error.AccesoDenegadoException;
 import cl.duoc.skyrimemporium.error.RecursoNoEncontradoException;
 import cl.duoc.skyrimemporium.error.StockInsuficienteException;
 import cl.duoc.skyrimemporium.modelo.Pedido;
@@ -36,17 +37,19 @@ public class PedidoService {
 
     @Transactional
     public Pedido crear(PedidoRequest solicitud, String clienteRun) {
+        if (clienteRun == null || clienteRun.isBlank()) {
+            throw new AccesoDenegadoException("Debes iniciar sesión para confirmar el pedido");
+        }
         Map<String, Integer> cantidades = new LinkedHashMap<>();
         for (LineaPedido linea : solicitud.lineas()) {
             Producto producto = resolverProducto(linea);
             cantidades.merge(producto.getId(), linea.cantidad(), Math::addExact);
         }
 
-        Usuario cuenta = clienteRun == null ? null : usuarios.findById(clienteRun)
+        Usuario cuenta = usuarios.findById(clienteRun)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe la cuenta del comprador"));
-        String cliente = cuenta == null ? solicitud.cliente()
-                : (cuenta.getNombre() + " " + cuenta.getApellidos()).trim();
-        String correo = cuenta == null ? solicitud.correo() : cuenta.getCorreo();
+        String cliente = (cuenta.getNombre() + " " + cuenta.getApellidos()).trim();
+        String correo = cuenta.getCorreo();
         int unidades = 0;
         long total = 0;
         List<DetallePedido> detalles = new ArrayList<>();

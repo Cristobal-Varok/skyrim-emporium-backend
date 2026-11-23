@@ -23,7 +23,7 @@ import cl.duoc.skyrimemporium.servicio.UsuarioService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/usuarios")
+@RequestMapping("/api/v1/usuarios")
 public class UsuarioController {
 
     private final UsuarioService servicio;

@@ -24,7 +24,7 @@ import cl.duoc.skyrimemporium.servicio.PedidoService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/pedidos")
+@RequestMapping("/api/v1/pedidos")
 @SecurityRequirement(name = "bearerAuth")
 public class PedidoController {
 
@@ -37,12 +37,13 @@ public class PedidoController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'VENDEDOR')")
     public List<PedidoResponse> listar() {
         return repositorio.findAllByOrderByFechaDesc().stream().map(PedidoResponse::desde).toList();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'VENDEDOR') or @pedidoController.esDueno(#p0, authentication.name)")
     public PedidoResponse obtener(@PathVariable Long id, Authentication autenticacion) {
         Pedido pedido = servicio.buscar(id);
         verificarAcceso(pedido, autenticacion);
@@ -69,7 +70,7 @@ public class PedidoController {
     }
 
     private void verificarAcceso(Pedido pedido, Authentication autenticacion) {
-        if (!esAdministrador(autenticacion)
+        if (!esAdministrador(autenticacion) && !esVendedor(autenticacion)
                 && (pedido.getClienteRun() == null || !pedido.getClienteRun().equals(autenticacion.getName()))) {
             throw new AccesoDenegadoException("No puedes consultar esta boleta");
         }
@@ -78,5 +79,15 @@ public class PedidoController {
     private boolean esAdministrador(Authentication autenticacion) {
         return autenticacion.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRADOR"));
+    }
+
+    private boolean esVendedor(Authentication autenticacion) {
+        return autenticacion.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_VENDEDOR"));
+    }
+
+    public boolean esDueno(Long id, String run) {
+        Pedido pedido = servicio.buscar(id);
+        return pedido.getClienteRun() != null && pedido.getClienteRun().equals(run);
     }
 }

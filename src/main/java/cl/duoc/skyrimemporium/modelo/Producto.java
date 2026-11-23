@@ -1,8 +1,11 @@
 package cl.duoc.skyrimemporium.modelo;
 
+import java.util.Map;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import jakarta.persistence.Column;
 import jakarta.persistence.Lob;
@@ -16,6 +19,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Entity
 @Table(name = "productos")
 public class Producto {
+
+    private static final Map<String, Integer> DESCUENTOS_POR_ID = Map.of(
+            "armadura-acero", 20,
+            "pocion-salud", 20,
+            "baston-destruccion", 20,
+            "rollo-dulce", 20);
 
     @Id
     @Schema(example = "alquimia::curar-enfermedad")
@@ -96,6 +105,18 @@ public class Producto {
 
     public Integer getPrice() { return price; }
     public void setPrice(Integer price) { this.price = price; }
+
+    @Transient
+    public Integer getDiscountPercent() {
+        int separador = id == null ? -1 : id.lastIndexOf("::");
+        String idProducto = separador >= 0 ? id.substring(separador + 2) : id;
+        if (idProducto == null) return 0;
+        return DESCUENTOS_POR_ID.getOrDefault(idProducto, 0);
+    }
+
+    public Integer precioConDescuento() {
+        return (int) Math.round(price * (1.0 - getDiscountPercent() / 100.0));
+    }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

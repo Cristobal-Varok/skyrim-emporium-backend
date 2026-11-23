@@ -29,7 +29,7 @@ public class SecurityConfig {
     @Bean
     UserDetailsService userDetailsService() {
         return username -> {
-            throw new UsernameNotFoundException("La autenticación se realiza mediante /api/auth/login");
+            throw new UsernameNotFoundException("La autenticación se realiza mediante /api/v1/auth/login");
         };
     }
 
@@ -42,11 +42,11 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
-                                "/api/usuarios/registro", "/swagger-ui.html", "/swagger-ui/**",
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
+                                "/api/v1/usuarios/registro", "/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs/**", "/h2-console/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/categorias/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/productos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/categorias/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(errorHandler)
                         .accessDeniedHandler(errorHandler))

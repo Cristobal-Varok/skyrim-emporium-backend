@@ -13,7 +13,7 @@ import cl.duoc.skyrimemporium.repositorio.UsuarioRepository;
 import cl.duoc.skyrimemporium.servicio.ReporteAdminService;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/v1/admin")
 @PreAuthorize("hasRole('ADMINISTRADOR')")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminController {

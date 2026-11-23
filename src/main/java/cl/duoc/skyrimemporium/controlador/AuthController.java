@@ -25,7 +25,7 @@ import cl.duoc.skyrimemporium.servicio.UsuarioService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private static final String COOKIE_REFRESH = "skyrim_refresh";
@@ -83,7 +83,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(cookieSeguro)
                 .sameSite("Lax")
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(maxAge)
                 .build();
     }

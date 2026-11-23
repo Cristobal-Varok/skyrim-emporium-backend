@@ -64,8 +64,9 @@ public class PedidoService {
             }
             producto.setStock(producto.getStock() - cantidad);
             unidades = Math.addExact(unidades, cantidad);
-            total = Math.addExact(total, Math.multiplyExact((long) producto.getPrice(), cantidad));
-            detalles.add(new DetallePedido(producto.getId(), producto.getName(), cantidad, producto.getPrice()));
+            int precioFinal = producto.precioConDescuento();
+            total = Math.addExact(total, Math.multiplyExact((long) precioFinal, cantidad));
+            detalles.add(new DetallePedido(producto.getId(), producto.getName(), cantidad, precioFinal));
         }
         Pedido orden = new Pedido(LocalDateTime.now(), unidades, total, cliente, correo, clienteRun,
                 solicitud.calle(), solicitud.departamento(), solicitud.region(), solicitud.comuna(),

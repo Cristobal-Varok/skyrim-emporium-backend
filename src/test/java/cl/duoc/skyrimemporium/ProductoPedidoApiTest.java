@@ -15,6 +15,8 @@ import org.springframework.test.context.TestPropertySource;
 import jakarta.servlet.http.Cookie;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import cl.duoc.skyrimemporium.dto.LineaPedido;
 import cl.duoc.skyrimemporium.dto.PedidoRequest;
@@ -29,6 +31,9 @@ import cl.duoc.skyrimemporium.servicio.AuthService;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -82,16 +87,41 @@ class ProductoPedidoApiTest {
     }
 
     @Test
+    void swaggerMuestraElEjemploCorregidoDeProducto() throws Exception {
+        MvcResult resultado = mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode documento = objectMapper.readTree(resultado.getResponse().getContentAsString());
+        JsonNode propiedades = documento.path("components").path("schemas")
+                .path("Producto").path("properties");
+        JsonNode ejemplo = documento.path("paths").path("/api/v1/productos")
+                .path("post").path("requestBody").path("content").path("application/json")
+                .path("examples").path("Producto de alquimia").path("value");
+
+        assertTrue(propiedades.has("categoriaSeccion"));
+        assertFalse(propiedades.has("categoria"));
+        assertTrue(propiedades.path("discountPercent").path("readOnly").asBoolean());
+        assertEquals("Pociones", ejemplo.path("categoriaSeccion").asText());
+        assertEquals("assets/img/Alquimia/Pociones/Curar_enfermedad.png", ejemplo.path("image").asText());
+        assertFalse(ejemplo.has("categoria"));
+        assertFalse(ejemplo.has("discountPercent"));
+    }
+
+    @Test
     void productoPermiteCrearActualizarYEliminar() throws Exception {
         String id = "crud::" + UUID.randomUUID();
         Producto producto = new Producto(id, "Producto CRUD", 100, "Descripción",
                 "assets/img/test.png", 4, "alquimia", "Pociones", 1);
+        ObjectNode solicitud = objectMapper.valueToTree(producto);
+        solicitud.put("categoria", "alquimia");
         mockMvc.perform(post("/api/v1/productos")
                         .header("Authorization", "Bearer " + tokenAdmin)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(producto)))
+                        .content(objectMapper.writeValueAsString(solicitud)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Producto CRUD"));
+                .andExpect(jsonPath("$.name").value("Producto CRUD"))
+                .andExpect(jsonPath("$.categoriaSeccion").value("Pociones"))
+                .andExpect(jsonPath("$.categoria").doesNotExist());
 
         Producto actualizado = new Producto(id, "Producto actualizado", 120, "Descripción actualizada",
                 "assets/img/test.png", 2, "alquimia", "Pociones", 1);
@@ -261,7 +291,8 @@ class ProductoPedidoApiTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/productos/{id}", producto.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.categoria").value("Temporal renombrada"));
+                .andExpect(jsonPath("$.categoriaSeccion").value("Temporal renombrada"))
+                .andExpect(jsonPath("$.categoria").doesNotExist());
         mockMvc.perform(delete("/api/v1/productos/{id}", producto.getId())
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isNoContent());
@@ -430,7 +461,7 @@ class ProductoPedidoApiTest {
                         .param("gremio", "alquimia")
                         .param("categoria", "Pociones"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].categoria").value(org.hamcrest.Matchers.everyItem(
+                .andExpect(jsonPath("$[*].categoriaSeccion").value(org.hamcrest.Matchers.everyItem(
                         org.hamcrest.Matchers.equalTo("Pociones"))));
     }
 

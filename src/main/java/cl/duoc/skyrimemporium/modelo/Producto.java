@@ -107,6 +107,7 @@ public class Producto {
     public void setPrice(Integer price) { this.price = price; }
 
     @Transient
+    @Schema(example = "0", accessMode = Schema.AccessMode.READ_ONLY)
     public Integer getDiscountPercent() {
         int separador = id == null ? -1 : id.lastIndexOf("::");
         String idProducto = separador >= 0 ? id.substring(separador + 2) : id;
@@ -132,8 +133,6 @@ public class Producto {
 
     public String getCategoriaSeccion() { return categoriaSeccion; }
     public void setCategoriaSeccion(String categoriaSeccion) { this.categoriaSeccion = categoriaSeccion; }
-    public String getCategoria() { return categoriaSeccion; }
-    public void setCategoria(String categoria) { this.categoriaSeccion = categoria; }
 
     public Integer getStockCritico() { return stockCritico; }
     public void setStockCritico(Integer stockCritico) { this.stockCritico = stockCritico; }

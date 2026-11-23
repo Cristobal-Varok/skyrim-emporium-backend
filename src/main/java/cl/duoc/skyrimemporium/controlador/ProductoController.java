@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import cl.duoc.skyrimemporium.modelo.Producto;
 import cl.duoc.skyrimemporium.servicio.ProductoService;
@@ -23,6 +26,21 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/v1/productos")
 public class ProductoController {
+
+    private static final String EJEMPLO_PRODUCTO = """
+            {
+              "id": "alquimia::pocion-nueva",
+              "codigo": "ALQ-POC-NUEVA",
+              "name": "Pocion nueva",
+              "price": 150,
+              "description": "Una pocion de ejemplo.",
+              "image": "assets/img/Alquimia/Pociones/Curar_enfermedad.png",
+              "stock": 10,
+              "gremio": "alquimia",
+              "categoriaSeccion": "Pociones",
+              "stockCritico": 5
+            }
+            """;
 
     private final ProductoService servicio;
 
@@ -53,14 +71,35 @@ public class ProductoController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @SecurityRequirement(name = "bearerAuth")
     @ResponseStatus(HttpStatus.CREATED)
-    public Producto crear(@Valid @RequestBody Producto producto) {
+    public Producto crear(
+            @Valid @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "La categoría del producto se indica únicamente en categoriaSeccion.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Producto.class),
+                            examples = @ExampleObject(
+                                    name = "Producto de alquimia",
+                                    value = EJEMPLO_PRODUCTO)))
+            Producto producto) {
         return servicio.crear(producto);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @SecurityRequirement(name = "bearerAuth")
-    public Producto actualizar(@PathVariable String id, @Valid @RequestBody Producto producto) {
+    public Producto actualizar(
+            @PathVariable String id,
+            @Valid @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "La categoría del producto se indica únicamente en categoriaSeccion.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Producto.class),
+                            examples = @ExampleObject(
+                                    name = "Producto de alquimia",
+                                    value = EJEMPLO_PRODUCTO)))
+            Producto producto) {
         return servicio.actualizar(id, producto);
     }
 

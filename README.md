@@ -66,6 +66,7 @@ Son credenciales públicas de demostración, no deben utilizarse en producción.
 | DELETE | `/api/v1/categorias/{id}` | Administrador | Elimina categorías vacías |
 
 Los productos conservan identificadores únicos como `alquimia::curar-enfermedad`; las líneas del carrito también pueden enviar el identificador original y el campo `gremio`.
+En el JSON de productos, la categoría se envía y se devuelve únicamente como `categoriaSeccion`. El parámetro `categoria` se usa solo para filtrar el catálogo en `GET /api/v1/productos`.
 
 ### Usuarios y sesión
 
